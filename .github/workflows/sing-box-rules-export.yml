@@ -14,13 +14,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout (optional)
-        uses: actions/checkout@v4
-
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq curl ca-certificates tar gzip
+          sudo apt-get install -y jq curl ca-certificates
 
       - name: Install sing-box
         run: |
@@ -29,6 +26,13 @@ jobs:
           sudo ln -sf "$(command -v sing-box)" /usr/local/bin/sing-box || true
           sing-box version
 
+      - name: Get sing-box version (for release body)
+        id: sbver
+        run: |
+          set -euo pipefail
+          ver="$(sing-box version 2>&1 | tr '\n' ' ')"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "$ver"
 
       - name: Prepare /etc/sing-box
         run: |
@@ -47,87 +51,78 @@ jobs:
 
           ls -lh /etc/sing-box
 
-      - name: Export geoip groups
+      - name: Export geoip (from /etc/sing-box)
         run: |
           set -euo pipefail
-
           cd /etc/sing-box
 
-          # 3) sing-box geoip list：每行一个组名
           geoip_groups="$(sudo sing-box geoip list | awk 'NF{print}')"
+          if [ -z "$geoip_groups" ]; then
+            echo "No geoip groups found"
+            exit 1
+          fi
 
-          mkdir -p work
-
-          # 4) 遍历每个组导出
           echo "$geoip_groups" | while IFS= read -r group; do
+            [ -n "$group" ] || continue
             echo "Export geoip: $group"
             sudo sing-box geoip export "$group"
           done
 
-      - name: Export geosite groups
+      - name: Export geosite (from /etc/sing-box)
+        run: |
+          set -euo pipefail
+          cd /etc/sing-box
+
+          geosite_groups="$(sudo sing-box geosite list | awk '{print $1}' | awk 'NF{print}')"
+          if [ -z "$geosite_groups" ]; then
+            echo "No geosite groups found"
+            exit 1
+          fi
+
+          echo "$geosite_groups" | while IFS= read -r group; do
+            [ -n "$group" ] || continue
+            echo "Export geosite: $group"
+            sudo sing-box geosite "$group"
+          done
+
+      - name: Delete config.json
         run: |
           set -euo pipefail
 
           cd /etc/sing-box
 
-          # 5) sing-box geosite list：每行是 “组名 (....)”，“实际只要组名”
-          geosite_groups="$(sudo sing-box geosite list | awk '{print $1}' | awk 'NF{print}')"
+          # 删除 config.json
+          rm -f /etc/sing-box/config.json || true
 
-          echo "$geosite_groups" | while IFS= read -r group; do
-            echo "Export geosite: $group"
-            sudo sing-box geosite "$group"
-          done
+          echo "Final /etc/sing-box files:"
+          ls -lh /etc/sing-box
 
-      - name: Organize output files (no folder split, no zip)
+      - name: Publish ruleset files to traition/sing-box-ruleset-json
+        env:
+          TARGET_GH_TOKEN: ${{ secrets.TARGET_GH_TOKEN }}
         run: |
           set -euo pipefail
 
-          # 8) 删除 config.json
-          sudo rm -f /etc/sing-box/config.json
-
-          echo "Final generated files:"
-          sudo ls -lh /etc/sing-box
-
-
-      - name: Create artifact zip
-        run: |
-          set -euo pipefail
-          ts="$(date -u +%Y%m%d%H%M%S)"
-          # 输出文件结构：out/geoip/* + out/geosite/*
-          zip -r "sing-box-ruleset-json-${ts}.zip" out
-
-          ls -lh
-
-      - name: Publish release to traition/sing-box-ruleset-json
-        run: |
-          set -euo pipefail
-
-          # 取原始 release tag（来自触发源 lyc8503/sing-box-rules）
           src_tag="${{ github.event.release.tag_name }}"
           src_name="${{ github.event.release.name }}"
-          # 你可以决定目标 release tag 如何命名
           target_tag="ruleset-from-${src_tag}"
+          sb_ver="${{ steps.sbver.outputs.version }}"
 
-          # 读取构建出来的 zip 名字
-          asset="$(ls sing-box-ruleset-json-*.zip | head -n 1)"
+          echo "Target release tag: $target_tag"
 
-          echo "Creating/updating release: ${target_tag}"
-
-          # 用 GitHub API 创建 release
-          # 先查是否已存在同 tag（避免重复创建）
+          # 创建/获取 release
           resp="$(curl -sS -H "Authorization: token ${TARGET_GH_TOKEN}" \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/tags/${target_tag}" || true)"
-
           exists="$(echo "$resp" | jq -r '.id // empty')"
 
           if [ -n "$exists" ]; then
-            echo "Release already exists, will upload asset."
             release_id="$exists"
+            echo "Release already exists: id=${release_id}"
           else
             payload="$(jq -n \
               --arg tag "$target_tag" \
               --arg name "Ruleset ${src_tag}" \
-              --arg body "Generated from lyc8503/sing-box-rules release: ${src_name} (${src_tag})." \
+              --arg body "Generated from lyc8503/sing-box-rules release: ${src_name} (${src_tag}).\n\nsing-box version: ${sb_ver}" \
               '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}')"
 
             release_create="$(curl -sS -X POST \
@@ -137,21 +132,33 @@ jobs:
               -d "$payload")"
 
             release_id="$(echo "$release_create" | jq -r '.id')"
+            echo "Created release: id=${release_id}"
           fi
 
-          # 上传 asset（先删除同名旧资源可选；这里简单上传）
           upload_url="$(curl -sS \
             -H "Authorization: token ${TARGET_GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/${release_id}" | jq -r '.upload_url' )"
+            "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/${release_id}" \
+            | jq -r '.upload_url')"
 
-          # upload_url 里有 { ?name,label }
           upload_url="${upload_url%\{*}"
 
-          curl -sS -X POST \
-            -H "Authorization: token ${TARGET_GH_TOKEN}" \
-            -H "Content-Type: application/zip" \
-            "${upload_url}?name=$(basename "$asset")" \
-            --data-binary @"$asset"
+          # 逐个上传 /etc/sing-box 下的文件（跳过 db/config.json）
+          cd /etc/sing-box
+          shopt -s nullglob
+
+          for f in *; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              geoip.db|geosite.db|config.json) continue ;;
+            esac
+
+            echo "Uploading asset: $f"
+            curl -sS -X POST \
+              -H "Authorization: token ${TARGET_GH_TOKEN}" \
+              -H "Content-Type: application/octet-stream" \
+              "${upload_url}?name=${f}" \
+              --data-binary @"$f"
+          done
 
           echo "Done."
