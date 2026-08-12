@@ -4,12 +4,7 @@ on:
   release:
     types: [published]
     repository: lyc8503/sing-box-rules
-  workflow_dispatch:
-    inputs:
-      target_tag:
-        description: "Target release tag for traition/sing-box-ruleset-json (e.g. ruleset-from-geoip-2026xxxx)"
-        required: true
-        default: "manual"
+  workflow_dispatch: {}
 
 jobs:
   export:
@@ -161,7 +156,7 @@ jobs:
           git fetch origin main
           git checkout main
 
-          git add -A geoip geosite
+          git add -A geoip geosite geoip.db geosite.db
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
@@ -169,13 +164,14 @@ jobs:
           fi
 
           sb_ver="${{ steps.sbver.outputs.version }}"
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            commit_msg="Update geoip/geosite groups (manual) | sing-box: ${sb_ver}"
+            yymmddhhii="$(date +'%y%m%d%H%M')"
+            title="manual:${yymmddhhii}"
           else
-            commit_msg="Update geoip/geosite groups from release ${GITHUB_REF_NAME} | sing-box: ${sb_ver}"
+            # 使用触发的 lyc8503/sing-box-rules release 的 title
+            title="release:${{ github.event.release.title }}"
           fi
 
-          git commit -m "$commit_msg"
-
-          # push
+          git commit -m "$title" -m "sing-box_ver:${sb_ver}"
           git push origin main
