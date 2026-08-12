@@ -99,16 +99,16 @@ jobs:
       - name: Delete config.json
         run: |
           set -euo pipefail
-
           cd /etc/sing-box
 
-          # 删除 config.json
           rm -f /etc/sing-box/config.json || true
 
           echo "Final /etc/sing-box files:"
           ls -lh /etc/sing-box
 
-       - name: Publish ruleset files to traition/sing-box-ruleset-json
+      - name: Publish ruleset files to traition/sing-box-ruleset-json
+        env:
+          TARGET_GH_TOKEN: ${{ secrets.TARGET_GH_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -132,7 +132,6 @@ jobs:
           echo "Target release tag: $target_tag"
           echo "sing-box version: $sb_ver"
 
-          # 创建/获取 release
           resp="$(curl -sS -H "Authorization: token ${TARGET_GH_TOKEN}" \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/tags/${target_tag}" || true)"
 
