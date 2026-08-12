@@ -36,15 +36,14 @@
    - `sing-box geoip export 组名称`
 5. 执行：
    - `sing-box geosite list`
-   - 每行包含“组名 + 额外信息”，仅取每行的**第一段组名**
+   - 每行包含“组名 + 额外信息”，仅取每行的第一段组名
 6. 遍历每个组名，执行：
    - `sing-box geosite 组名称`
-7. 在 `/etc/sing-box` 下整理导出结果：
-   - 新建目录：`/etc/sing-box/geoip`、`/etc/sing-box/geosite`
-   - 将 `geoip-*` 前缀的文件移动到 `geoip/`
-   - 将 `geosite-*` 前缀的文件移动到 `geosite/`
-8. 去掉导出文件名的前缀：
-   - 将 `geoip-xxx` 重命名为 `xxx`
-   - 将 `geosite-xxx` 重命名为 `xxx`
+7. 在 `/etc/sing-box` 下直接保留导出产生的所有 `geoip*` 与 `geosite*` 文件：
+   - 不再创建 `geoip/`、`geosite/` 子目录
+   - 不再做按目录前缀分类/移动
+8. 去掉导出文件名的前缀（文件直接在 `/etc/sing-box` 下改名）：
+   - `geoip-xxx` -> `xxx`
+   - `geosite-xxx` -> `xxx`
 9. 删除 `/etc/sing-box/config.json`
-10. 将 `/etc/sing-box/geoip` 与 `/etc/sing-box/geosite` 下的所有文件打包，并发布到`github.com/traition/sing-box-ruleset-json`
+10. 将 `/etc/sing-box` 下生成的所有规则文件直接作为 Release 资产上传到`github.com/traition/sing-box-ruleset-json`，Release 中的正文会包含本次执行时的 `sing-box` 版本信息
