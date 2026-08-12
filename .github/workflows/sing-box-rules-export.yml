@@ -51,6 +51,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          cd /etc/sing-box
+
           # 3) sing-box geoip list：每行一个组名
           geoip_groups="$(sudo sing-box geoip list | awk 'NF{print}')"
 
@@ -59,13 +61,14 @@ jobs:
           # 4) 遍历每个组导出
           echo "$geoip_groups" | while IFS= read -r group; do
             echo "Export geoip: $group"
-            # 导出会在 /etc/sing-box 目录里生成 geoip-xxx 文件（按你的描述）
             sudo sing-box geoip export "$group"
           done
 
       - name: Export geosite groups
         run: |
           set -euo pipefail
+
+          cd /etc/sing-box
 
           # 5) sing-box geosite list：每行是 “组名 (....)”，“实际只要组名”
           geosite_groups="$(sudo sing-box geosite list | awk '{print $1}' | awk 'NF{print}')"
@@ -79,26 +82,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 8) 去掉前缀：在 /etc/sing-box 下直接改名
-          sudo sh -c '
-            set -e
-
-            for f in /etc/sing-box/geoip-*; do
-              [ -e "$f" ] || continue
-              base="$(basename "$f")"       # geoip-xxx
-              name="${base#geoip-}"        # xxx
-              mv "$f" "/etc/sing-box/$name"
-            done
-
-            for f in /etc/sing-box/geosite-*; do
-              [ -e "$f" ] || continue
-              base="$(basename "$f")"       # geosite-xxx
-              name="${base#geosite-}"      # xxx
-              mv "$f" "/etc/sing-box/$name"
-            done
-          '
-
-          # 9) 删除 config.json
+          # 8) 删除 config.json
           sudo rm -f /etc/sing-box/config.json
 
           echo "Final generated files:"
