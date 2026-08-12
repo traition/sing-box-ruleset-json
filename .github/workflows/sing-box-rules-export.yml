@@ -118,11 +118,48 @@ jobs:
             sudo cp -f "$f" "${repo_root}/geoip/${base}"
           done
 
-          # geosite- 前缀文件 -> geosite/（去掉 geosite-）
+          # geosite-* 文件：
+          # - 非 category-：放到 geosite/，去掉 geosite- 前缀
+          # - category-xxxxxx：删掉 category- 前缀，放到 geosite/xxxxxx
+          # - category-aaa-bbb...：新建 geosite/aaa/，删掉 category-aaa- 前缀，剩余部分放入该目录
           for f in geosite-*; do
             [ -f "$f" ] || continue
-            base="${f#geosite-}"
-            sudo cp -f "$f" "${repo_root}/geosite/${base}"
+
+            name="$f"
+
+            # 先去掉 geosite- 前缀
+            if [[ "$name" == geosite-* ]]; then
+              name="${name#geosite-}"
+            fi
+
+            if [[ "$name" == category-* ]]; then
+              # category-xxxxxx
+              if [[ "$name" =~ ^category-([A-Za-z0-9._-]+)$ ]]; then
+                base="${BASH_REMATCH[1]}"
+                out="${repo_root}/geosite/${base}"
+                echo "geosite category -> ${out}"
+                sudo cp -f "/etc/sing-box/${f}" "${out}"
+              # category-aaa-xxxxx...（保留 aaa 为目录名）
+              elif [[ "$name" =~ ^category-([A-Za-z0-9._-]+)-(.+)$ ]]; then
+                aaa="${BASH_REMATCH[1]}"
+                rest="${BASH_REMATCH[2]}"
+                out_dir="${repo_root}/geosite/${aaa}"
+                sudo mkdir -p "${out_dir}"
+                out="${out_dir}/${rest}"
+                echo "geosite category (dir ${aaa}) -> ${out}"
+                sudo cp -f "/etc/sing-box/${f}" "${out}"
+              else
+                # 兜底：删 category- 前缀放到 geosite/
+                out="${repo_root}/geosite/${name#category-}"
+                echo "geosite category fallback -> ${out}"
+                sudo cp -f "/etc/sing-box/${f}" "${out}"
+              fi
+            else
+              # 非 category-：直接放到 geosite/
+              out="${repo_root}/geosite/${name}"
+              echo "geosite -> ${out}"
+              sudo cp -f "/etc/sing-box/${f}" "${out}"
+            fi
           done
 
           echo "Repo structure preview:"
