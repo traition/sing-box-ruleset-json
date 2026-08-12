@@ -22,7 +22,13 @@ jobs:
       - name: Install sing-box
         run: |
           set -euo pipefail
-          curl -fsSL https://sing-box.app/install.sh | sh
+          for i in 1 2 3 4 5; do
+            echo "Installing sing-box (attempt $i/5)..."
+            if curl -fsSL https://sing-box.app/install.sh | sh; then
+              break
+            fi
+            sleep 20
+          done
           sudo ln -sf "$(command -v sing-box)" /usr/local/bin/sing-box || true
           sing-box version
 
