@@ -108,9 +108,7 @@ jobs:
           echo "Final /etc/sing-box files:"
           ls -lh /etc/sing-box
 
-            - name: Publish ruleset files to traition/sing-box-ruleset-json
-        env:
-          TARGET_GH_TOKEN: ${{ secrets.TARGET_GH_TOKEN }}
+       - name: Publish ruleset files to traition/sing-box-ruleset-json
         run: |
           set -euo pipefail
 
