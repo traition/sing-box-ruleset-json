@@ -19,6 +19,11 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -96,84 +101,81 @@ jobs:
             sudo sing-box geosite export "$group"
           done
 
-      - name: Delete config.json
-        run: |
-          set -euo pipefail
-          cd /etc/sing-box
-
-          rm -f /etc/sing-box/config.json || true
-
-          echo "Final /etc/sing-box files:"
-          ls -lh /etc/sing-box
-
-      - name: Publish ruleset files to traition/sing-box-ruleset-json
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Move & rename into repo folders (geoip/geosite)
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            target_tag="${{ inputs.target_tag }}"
-            src_name="manual"
-          else
-            src_tag="${{ github.event.release.tag_name }}"
-            src_name="${{ github.event.release.name }}"
-            target_tag="ruleset-from-${src_tag}"
-          fi
-
-          sb_ver="${{ steps.sbver.outputs.version }}"
-
-          resp="$(curl -sS \
-            -H "Authorization: token ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/tags/${target_tag}" || true)"
-
-          exists="$(echo "$resp" | jq -r '.id // empty')"
-
-          if [ -n "$exists" ]; then
-            release_id="$exists"
-          else
-            payload="$(jq -n \
-              --arg tag "$target_tag" \
-              --arg name "Ruleset ${target_tag}" \
-              --arg body "Generated.&#10;&#10;sing-box version: ${sb_ver}" \
-              '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}')"
-
-            release_create="$(curl -sS -X POST \
-              -H "Authorization: token ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              https://api.github.com/repos/traition/sing-box-ruleset-json/releases \
-              -d "$payload")"
-
-            release_id="$(echo "$release_create" | jq -r '.id // empty')"
-
-            if [ -z "$release_id" ] || [ "$release_id" = "null" ]; then
-              echo "Failed to create release"
-              echo "$release_create"
-              exit 1
-            fi
-          fi
-
-          upload_url="$(curl -sS \
-            -H "Authorization: token ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/${release_id}" \
-            | jq -r '.upload_url')"
-
-          upload_url="${upload_url%\{*}"
+          # 清理旧目录
+          rm -rf ./geoip ./geosite
+          mkdir -p ./geoip ./geosite
 
           cd /etc/sing-box
           shopt -s nullglob
 
-          for f in *; do
+          # 1) 复制 db 到仓库根目录（上级目录）
+          for f in geoip.db geosite.db; do
             [ -f "$f" ] || continue
-            case "$f" in
-              geoip.db|geosite.db|config.json) continue ;;
-            esac
-
-            curl -sS -X POST \
-              -H "Authorization: token ${GH_TOKEN}" \
-              -H "Content-Type: application/octet-stream" \
-              "${upload_url}?name=${f}" \
-              --data-binary @"$f"
+            echo "Copy $f to repo root"
+            sudo cp -f "$f" "../$f"
           done
+
+          # 2) 分类 geoip-*（去掉 geoip- 前缀）
+          for f in geoip-*; do
+            [ -f "$f" ] || continue
+            base="$f"
+            base="${base#geoip-}"
+            out="../geoip/${base}"
+            echo "geoip -> $out"
+            sudo cp -f "$f" "$out"
+          done
+
+          # 3) 分类 geosite-*（去掉 geosite- 前缀）
+          for f in geosite-*; do
+            [ -f "$f" ] || continue
+            base="$f"
+            base="${base#geosite-}"
+            out="../geosite/${base}"
+            echo "geosite -> $out"
+            sudo cp -f "$f" "$out"
+          done
+
+          echo "Repo root geoip.db/geosite.db:"
+          ls -lh ./geoip.db ./geosite.db || true
+
+          echo "Repo ./geoip content:"
+          ls -lh ./geoip || true
+
+          echo "Repo ./geosite content:"
+          ls -lh ./geosite || true
+
+      - name: Commit & push to main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 确保在 main 上提交
+          git fetch origin main
+          git checkout main
+
+          git add -A geoip geosite
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          sb_ver="${{ steps.sbver.outputs.version }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            commit_msg="Update geoip/geosite groups (manual) | sing-box: ${sb_ver}"
+          else
+            commit_msg="Update geoip/geosite groups from release ${GITHUB_REF_NAME} | sing-box: ${sb_ver}"
+          fi
+
+          git commit -m "$commit_msg"
+
+          # push
+          git push origin main
