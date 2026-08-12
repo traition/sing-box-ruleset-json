@@ -100,48 +100,35 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 清理旧目录
-          rm -rf ./geoip ./geosite
-          mkdir -p ./geoip ./geosite
+          repo_root="${GITHUB_WORKSPACE}"
+          rm -rf "${repo_root}/geoip" "${repo_root}/geosite"
+          mkdir -p "${repo_root}/geoip" "${repo_root}/geosite"
 
           cd /etc/sing-box
           shopt -s nullglob
 
-          # 1) 复制 db 到仓库根目录（上级目录）
-          for f in geoip.db geosite.db; do
-            [ -f "$f" ] || continue
-            echo "Copy $f to repo root"
-            sudo cp -f "$f" "../$f"
-          done
+          # db 放仓库根目录
+          sudo cp -f geoip.db "${repo_root}/geoip.db"
+          sudo cp -f geosite.db "${repo_root}/geosite.db"
 
-          # 2) 分类 geoip-*（去掉 geoip- 前缀）
+          # geoip- 前缀文件 -> geoip/（去掉 geoip-）
           for f in geoip-*; do
             [ -f "$f" ] || continue
-            base="$f"
-            base="${base#geoip-}"
-            out="../geoip/${base}"
-            echo "geoip -> $out"
-            sudo cp -f "$f" "$out"
+            base="${f#geoip-}"
+            sudo cp -f "$f" "${repo_root}/geoip/${base}"
           done
 
-          # 3) 分类 geosite-*（去掉 geosite- 前缀）
+          # geosite- 前缀文件 -> geosite/（去掉 geosite-）
           for f in geosite-*; do
             [ -f "$f" ] || continue
-            base="$f"
-            base="${base#geosite-}"
-            out="../geosite/${base}"
-            echo "geosite -> $out"
-            sudo cp -f "$f" "$out"
+            base="${f#geosite-}"
+            sudo cp -f "$f" "${repo_root}/geosite/${base}"
           done
 
-          echo "Repo root geoip.db/geosite.db:"
-          ls -lh ./geoip.db ./geosite.db || true
-
-          echo "Repo ./geoip content:"
-          ls -lh ./geoip || true
-
-          echo "Repo ./geosite content:"
-          ls -lh ./geosite || true
+          echo "Repo structure preview:"
+          ls -lah "${repo_root}/geoip.db" "${repo_root}/geosite.db" || true
+          ls -lah "${repo_root}/geoip" || true
+          ls -lah "${repo_root}/geosite" || true
 
       - name: Commit & push to main
         env:
