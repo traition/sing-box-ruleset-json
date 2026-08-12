@@ -132,7 +132,7 @@ jobs:
           echo "Target release tag: $target_tag"
           echo "sing-box version: $sb_ver"
 
-          resp="$(curl -sS -H "Authorization: token ${TARGET_GH_TOKEN}" \
+          resp="$(curl -sS \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/tags/${target_tag}" || true)"
 
           exists="$(echo "$resp" | jq -r '.id // empty')"
@@ -147,7 +147,6 @@ jobs:
               '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}')"
 
             release_create="$(curl -sS -X POST \
-              -H "Authorization: token ${TARGET_GH_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
               https://api.github.com/repos/traition/sing-box-ruleset-json/releases \
               -d "$payload")"
@@ -164,7 +163,6 @@ jobs:
           fi
 
           upload_url="$(curl -sS \
-            -H "Authorization: token ${TARGET_GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/${release_id}" \
             | jq -r '.upload_url')"
@@ -187,7 +185,6 @@ jobs:
 
             echo "Uploading asset: $f"
             curl -sS -X POST \
-              -H "Authorization: token ${TARGET_GH_TOKEN}" \
               -H "Content-Type: application/octet-stream" \
               "${upload_url}?name=${f}" \
               --data-binary @"$f"
