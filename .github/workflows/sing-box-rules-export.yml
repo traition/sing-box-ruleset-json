@@ -108,12 +108,10 @@ jobs:
 
       - name: Publish ruleset files to traition/sing-box-ruleset-json
         env:
-          TARGET_GH_TOKEN: ${{ secrets.TARGET_GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
-          # 手动触发时：用 inputs.target_tag
-          # release 触发时：用 event.release.tag_name
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             target_tag="${{ inputs.target_tag }}"
             src_name="manual"
@@ -123,22 +121,17 @@ jobs:
             target_tag="ruleset-from-${src_tag}"
           fi
 
-          if [ -z "$target_tag" ]; then
-            echo "target_tag is empty, refuse to publish."
-            exit 1
-          fi
-
           sb_ver="${{ steps.sbver.outputs.version }}"
-          echo "Target release tag: $target_tag"
-          echo "sing-box version: $sb_ver"
 
           resp="$(curl -sS \
+            -H "Authorization: token ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/tags/${target_tag}" || true)"
 
           exists="$(echo "$resp" | jq -r '.id // empty')"
+
           if [ -n "$exists" ]; then
             release_id="$exists"
-            echo "Release already exists: id=${release_id}"
           else
             payload="$(jq -n \
               --arg tag "$target_tag" \
@@ -147,30 +140,25 @@ jobs:
               '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}')"
 
             release_create="$(curl -sS -X POST \
+              -H "Authorization: token ${GH_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
               https://api.github.com/repos/traition/sing-box-ruleset-json/releases \
               -d "$payload")"
 
             release_id="$(echo "$release_create" | jq -r '.id // empty')"
-            echo "Create response: $release_create"
 
             if [ -z "$release_id" ] || [ "$release_id" = "null" ]; then
-              echo "Failed to create release. release_id is empty/null."
+              echo "Failed to create release"
+              echo "$release_create"
               exit 1
             fi
-
-            echo "Created release: id=${release_id}"
           fi
 
           upload_url="$(curl -sS \
+            -H "Authorization: token ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/${release_id}" \
             | jq -r '.upload_url')"
-
-          if [ -z "$upload_url" ] || [ "$upload_url" = "null" ]; then
-            echo "upload_url is empty/null. release_id=${release_id}"
-            exit 1
-          fi
 
           upload_url="${upload_url%\{*}"
 
@@ -183,11 +171,9 @@ jobs:
               geoip.db|geosite.db|config.json) continue ;;
             esac
 
-            echo "Uploading asset: $f"
             curl -sS -X POST \
+              -H "Authorization: token ${GH_TOKEN}" \
               -H "Content-Type: application/octet-stream" \
               "${upload_url}?name=${f}" \
               --data-binary @"$f"
           done
-
-          echo "Done."
