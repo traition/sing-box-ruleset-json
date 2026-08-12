@@ -4,6 +4,7 @@ on:
   release:
     types: [published]
     repository: lyc8503/sing-box-rules
+  workflow_dispatch: {}
 
 jobs:
   export:
