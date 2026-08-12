@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "testipv6.cn",
-      "domain_suffix": ".testipv6.cn"
-    }
-  ]
-}

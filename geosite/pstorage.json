@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "pstorage.space",
-      "domain_suffix": ".pstorage.space"
-    }
-  ]
-}

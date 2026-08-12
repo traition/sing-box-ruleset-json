@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "jiyu-kobo.co.jp",
-      "domain_suffix": ".jiyu-kobo.co.jp"
-    }
-  ]
-}

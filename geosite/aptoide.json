@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "aptoide.com",
-      "domain_suffix": ".aptoide.com"
-    }
-  ]
-}

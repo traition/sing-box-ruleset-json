@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "cnb.cool",
-      "domain_suffix": ".cnb.cool"
-    }
-  ]
-}

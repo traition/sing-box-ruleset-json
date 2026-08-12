@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "rsshub.app",
-      "domain_suffix": ".rsshub.app"
-    }
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "shorturl.at",
-      "domain_suffix": ".shorturl.at"
-    }
-  ]
-}

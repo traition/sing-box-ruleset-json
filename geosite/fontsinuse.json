@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "fontsinuse.com",
-      "domain_suffix": ".fontsinuse.com"
-    }
-  ]
-}

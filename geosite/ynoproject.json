@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "ynoproject.net",
-      "domain_suffix": ".ynoproject.net"
-    }
-  ]
-}

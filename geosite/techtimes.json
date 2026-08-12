@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "techtimes.com",
-      "domain_suffix": ".techtimes.com"
-    }
-  ]
-}

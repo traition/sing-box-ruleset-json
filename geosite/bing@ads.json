@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "bingads.com",
-      "domain_suffix": ".bingads.com"
-    }
-  ]
-}

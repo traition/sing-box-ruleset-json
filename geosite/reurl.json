@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "reurl.cc",
-      "domain_suffix": ".reurl.cc"
-    }
-  ]
-}

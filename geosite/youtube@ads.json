@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "ads.youtube.com",
-      "domain_suffix": ".ads.youtube.com"
-    }
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "hm.com.cn",
-      "domain_suffix": ".hm.com.cn"
-    }
-  ]
-}

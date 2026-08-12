@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "taboola.com",
-      "domain_suffix": ".taboola.com"
-    }
-  ]
-}

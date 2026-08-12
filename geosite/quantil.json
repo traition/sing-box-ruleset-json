@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "quantil.com",
-      "domain_suffix": ".quantil.com"
-    }
-  ]
-}

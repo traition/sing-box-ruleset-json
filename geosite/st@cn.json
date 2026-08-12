@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "stmicroelectronics.com.cn",
-      "domain_suffix": ".stmicroelectronics.com.cn"
-    }
-  ]
-}

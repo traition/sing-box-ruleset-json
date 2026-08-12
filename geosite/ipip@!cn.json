@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "myip.la",
-      "domain_suffix": ".myip.la"
-    }
-  ]
-}

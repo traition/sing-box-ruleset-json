@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "lavteam.org",
-      "domain_suffix": ".lavteam.org"
-    }
-  ]
-}

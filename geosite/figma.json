@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "rules": [
-    {
-      "domain": "figma.com",
-      "domain_suffix": ".figma.com"
-    }
-  ]
-}
