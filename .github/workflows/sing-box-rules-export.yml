@@ -4,7 +4,12 @@ on:
   release:
     types: [published]
     repository: lyc8503/sing-box-rules
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: "Target release tag for traition/sing-box-ruleset-json (e.g. ruleset-from-geoip-2026xxxx)"
+        required: true
+        default: "manual"
 
 jobs:
   export:
@@ -88,7 +93,7 @@ jobs:
           echo "$geosite_groups" | while IFS= read -r group; do
             [ -n "$group" ] || continue
             echo "Export geosite: $group"
-            sudo sing-box geosite "$group"
+            sudo sing-box geosite export "$group"
           done
 
       - name: Delete config.json
@@ -103,32 +108,45 @@ jobs:
           echo "Final /etc/sing-box files:"
           ls -lh /etc/sing-box
 
-      - name: Publish ruleset files to traition/sing-box-ruleset-json
+            - name: Publish ruleset files to traition/sing-box-ruleset-json
         env:
           TARGET_GH_TOKEN: ${{ secrets.TARGET_GH_TOKEN }}
         run: |
           set -euo pipefail
 
-          src_tag="${{ github.event.release.tag_name }}"
-          src_name="${{ github.event.release.name }}"
-          target_tag="ruleset-from-${src_tag}"
-          sb_ver="${{ steps.sbver.outputs.version }}"
+          # 手动触发时：用 inputs.target_tag
+          # release 触发时：用 event.release.tag_name
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            target_tag="${{ inputs.target_tag }}"
+            src_name="manual"
+          else
+            src_tag="${{ github.event.release.tag_name }}"
+            src_name="${{ github.event.release.name }}"
+            target_tag="ruleset-from-${src_tag}"
+          fi
 
+          if [ -z "$target_tag" ]; then
+            echo "target_tag is empty, refuse to publish."
+            exit 1
+          fi
+
+          sb_ver="${{ steps.sbver.outputs.version }}"
           echo "Target release tag: $target_tag"
+          echo "sing-box version: $sb_ver"
 
           # 创建/获取 release
           resp="$(curl -sS -H "Authorization: token ${TARGET_GH_TOKEN}" \
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/tags/${target_tag}" || true)"
-          exists="$(echo "$resp" | jq -r '.id // empty')"
 
+          exists="$(echo "$resp" | jq -r '.id // empty')"
           if [ -n "$exists" ]; then
             release_id="$exists"
             echo "Release already exists: id=${release_id}"
           else
             payload="$(jq -n \
               --arg tag "$target_tag" \
-              --arg name "Ruleset ${src_tag}" \
-              --arg body "Generated from lyc8503/sing-box-rules release: ${src_name} (${src_tag}).\n\nsing-box version: ${sb_ver}" \
+              --arg name "Ruleset ${target_tag}" \
+              --arg body "Generated.&#10;&#10;sing-box version: ${sb_ver}" \
               '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}')"
 
             release_create="$(curl -sS -X POST \
@@ -137,7 +155,14 @@ jobs:
               https://api.github.com/repos/traition/sing-box-ruleset-json/releases \
               -d "$payload")"
 
-            release_id="$(echo "$release_create" | jq -r '.id')"
+            release_id="$(echo "$release_create" | jq -r '.id // empty')"
+            echo "Create response: $release_create"
+
+            if [ -z "$release_id" ] || [ "$release_id" = "null" ]; then
+              echo "Failed to create release. release_id is empty/null."
+              exit 1
+            fi
+
             echo "Created release: id=${release_id}"
           fi
 
@@ -147,9 +172,13 @@ jobs:
             "https://api.github.com/repos/traition/sing-box-ruleset-json/releases/${release_id}" \
             | jq -r '.upload_url')"
 
+          if [ -z "$upload_url" ] || [ "$upload_url" = "null" ]; then
+            echo "upload_url is empty/null. release_id=${release_id}"
+            exit 1
+          fi
+
           upload_url="${upload_url%\{*}"
 
-          # 逐个上传 /etc/sing-box 下的文件（跳过 db/config.json）
           cd /etc/sing-box
           shopt -s nullglob
 
