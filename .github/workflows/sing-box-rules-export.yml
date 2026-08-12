@@ -1,5 +1,6 @@
 name: Export sing-box geoip/geosite groups
 
+
 on:
   release:
     types: [published]
